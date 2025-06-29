@@ -1,0 +1,39 @@
+- name: Register GitLab runner
+  hosts: "{{ target_node }}"
+  gather_facts: no
+  tasks:
+    - name: Register runner
+      shell: |
+        /home/gitlab-runner-user/gitlab-runner/out/binaries/gitlab-runner-linux-riscv64 register --non-interactive \
+          --name "{{runner_name}}" \
+          --url "{{ gitlab_url }}" \
+          --token "{{ registration_token }}" \
+          --executor docker \
+          --docker-image riscv64/debian:trixie-slim
+      register: result
+      # Add a `changed_when` to prevent this task from always reporting a change if it just tries to register
+      # You might want to make this more sophisticated if you have specific conditions for "changed"
+      changed_when: false # Set to false if you just want to check for success/failure in subsequent tasks
+
+    - name: Debug runner registration output
+      debug:
+        var: result
+
+
+    - name: Fail if runner verification failed
+      fail:
+        msg: "Invalid Gitlab Registration Token"
+      when:
+        - "'ERROR: Verifying runner... failed' in result.stderr"
+  
+    - name: Fail if request cannot be processed
+      fail:
+        msg: "Invalid Gitlab Registration Token or GitLab server URL"
+      when:
+        - "'status=422 Unprocessable Entity' in result.stderr"
+    
+    - name: Fail if runner registration was not successful
+      fail:
+        msg: "Runner registration failed for an unknown reason. Output: {{ result.stdout + result.stderr }}"
+      when:
+        - "'Runner registered successfully.' not in (result.stdout + result.stderr)"
