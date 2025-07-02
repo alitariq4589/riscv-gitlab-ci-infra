@@ -22,6 +22,8 @@ INVENTORY_FILE = os.path.join(APP_ROOT, "ansible", "inventory.ini")
 LOG_FILE = os.path.join(APP_ROOT, "ansible-registration.log")
 RUNNER_REGISTRATION_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "register-runner.yml")
 
+# Define the path for the dynamic inventory group
+DYNAMIC_INVENTORY_GROUP = "dynamic_boards"
 
 # --- Utility Functions (Adapted from your Odoo Python file) ---
 
@@ -53,10 +55,6 @@ def check_gitlab_server(url):
         try:
             base_resp = requests.get(url, timeout=5, allow_redirects=True)
             if 'X-Gitlab-Instance' in base_resp.headers:
-                logger.info(f"'{url}' is a GitLab URL (X-Gitlab-Instance header confirmed on base URL).")
-                return True
-            # Also check for common GitLab strings in the homepage content
-            if "GitLab" in base_resp.text:
                 logger.info(f"'{url}' is a GitLab URL (Homepage content 'GitLab' confirmed).")
                 return True
         except requests.exceptions.RequestException:
@@ -320,6 +318,7 @@ def check_latest_failed_attempt(log_file):
         0: No specific failure pattern found or success.
         1: Invalid GitLab Registration Token (specific error message).
         2: Invalid GitLab Registration Token or GitLab server URL (status 422).
+        3: GitLab Runner binary not found on the target machine.
     """
     if not os.path.exists(log_file):
         logger.info(f"Log file not found: {log_file}")
@@ -348,12 +347,86 @@ def check_latest_failed_attempt(log_file):
     elif "Invalid Gitlab Registration Token" in latest_attempt_text:
         logger.info("Latest attempt failed due to invalid runner token.")
         return 1
+    elif "not found" in latest_attempt_text and "/home/gitlab-runner-user/gitlab-runner/out/binaries/gitlab-runner-linux-riscv64" in latest_attempt_text:
+        logger.info("Latest attempt failed because GitLab Runner binary was not found.")
+        return 3 # New error code for "not found"
     else:
         logger.info("Latest attempt did not fail due to a recognized runner token/URL issue.")
         return 0
 
 
 # --- Flask Routes ---
+
+@app.route('/', methods=['GET'])
+def render_index_page():
+    """
+    Renders the main landing page with options to add a board or register a runner.
+    """
+    return render_template('index.html')
+
+@app.route('/add-board', methods=['GET'])
+def render_add_board_page():
+    """
+    Renders the form to add a new RISC-V board.
+    """
+    return render_template('add_board.html')
+
+@app.route('/add-board', methods=['POST'])
+def handle_add_board_post():
+    """
+    Handles the submission of the form to add a new RISC-V board.
+    This function writes the new board details to the ansible/inventory.ini file.
+    """
+    board_name = request.form.get('board_name')
+    ip_address = request.form.get('ip_address')
+    ssh_port = request.form.get('ssh_port') # Get the SSH port
+    ssh_password = request.form.get('ssh_password')
+
+    if not board_name or not ip_address:
+        return render_template('add_board.html', message="Board Name and IP Address are required.", is_error=True)
+
+    # Basic IP address validation (can be enhanced)
+    if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip_address) and \
+       not re.match(r"^[a-zA-Z0-9.-]+$", ip_address): # Allow hostnames too
+        return render_template('add_board.html', message="Invalid IP Address or Hostname format.", is_error=True)
+
+    # Prepare the line to add to inventory.ini
+    inventory_line = f"{board_name} ansible_host={ip_address} ansible_user=gitlab-runner-user"
+    
+    # Add SSH port if provided and valid
+    if ssh_port and ssh_port.isdigit() and 1 <= int(ssh_port) <= 65535:
+        inventory_line += f" ansible_port={ssh_port}"
+    else:
+        # If not provided or invalid, default to 22 (Ansible's default)
+        inventory_line += f" ansible_port=22" # Explicitly set default for clarity
+
+    if ssh_password:
+        # WARNING: Storing SSH passwords in plain text in inventory.ini is NOT secure.
+        # For production, consider using Ansible Vault or SSH keys without passwords.
+        inventory_line += f" ansible_password='{ssh_password}'" # Use ansible_password for modern Ansible
+    
+    inventory_line += "\n"
+
+    try:
+        with open(INVENTORY_FILE, 'a+') as f: # Use 'a+' to read and append
+            f.seek(0) # Go to the beginning of the file to read
+            content = f.read()
+            
+            # Check if the dynamic group header already exists
+            if f"[{DYNAMIC_INVENTORY_GROUP}]" not in content:
+                f.write(f"\n[{DYNAMIC_INVENTORY_GROUP}]\n") # Add group header if not present
+            
+            f.write(inventory_line)
+        
+        logger.info(f"Successfully added board '{board_name}' with IP '{ip_address}' to inventory.")
+        return render_template('add_board.html', message=f"Board '{board_name}' successfully added to inventory!", is_error=False)
+    except IOError as e:
+        logger.error(f"Error writing to inventory file {INVENTORY_FILE}: {e}")
+        return render_template('add_board.html', message=f"Failed to add board: {e}", is_error=True)
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while adding board: {e}")
+        return render_template('add_board.html', message=f"An unexpected error occurred: {e}", is_error=True)
+
 
 @app.route('/gitlab-riscv-runner', methods=['GET'])
 def render_runner_registration_page():
@@ -450,6 +523,10 @@ def handle_runner_registration_post():
         elif fail_code == 2: # Meaning the request cannot be processed code 422. Due to either wrong token or wrong gitlab server url
             return render_template('no_registration_token.html',
                 error_message="Your GitLab token is invalid or expired, or the server URL is incorrect. Please verify these details or generate a new token."
+            )
+        elif fail_code == 3: # New error for "not found"
+            return render_template('no_registration_token.html',
+                error_message="The GitLab Runner package was not found on the selected machine and could not be installed automatically. Please try again or contact support."
             )
         
         # Generic error message if no specific failure pattern matched

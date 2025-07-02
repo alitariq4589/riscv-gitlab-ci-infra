@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RISC-V CI/CD Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .tab-card {
+            @apply flex flex-col items-center justify-center p-8 m-4 bg-white rounded-2xl shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-2xl cursor-pointer border-b-4 border-transparent hover:border-blue-500;
+            min-width: 300px;
+            min-height: 200px;
+        }
+        .tab-card h2 {
+            @apply text-3xl font-bold text-gray-800 mb-4;
+        }
+        .tab-card p {
+            @apply text-lg text-gray-600 text-center;
+        }
+        .main-container {
+            @apply bg-white p-10 rounded-3xl shadow-2xl;
+            max-width: 900px;
+            width: 95%;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1 class="text-center text-5xl font-extrabold text-gray-900 mb-10">
+            RISC-V CI/CD Management Portal
+        </h1>
+
+        <div class="flex flex-col md:flex-row justify-center items-center">
+            <!-- Tab 1: Add a new RISC-V board -->
+            <a href="{{ url_for('render_add_board_page') }}" class="tab-card">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-blue-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h2>Add a new RISC-V board</h2>
+                <p>Integrate a new physical or virtual RISC-V machine into your CI/CD infrastructure.</p>
+            </a>
+
+            <!-- Tab 2: Register a RISC-V board with GitLab runner -->
+            <a href="{{ url_for('render_runner_registration_page') }}" class="tab-card">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-purple-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+                <h2>Register a RISC-V board with GitLab runner</h2>
+                <p>Connect an existing RISC-V board to your GitLab project as a CI/CD runner.</p>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
