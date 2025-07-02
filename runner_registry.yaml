@@ -1,0 +1,47 @@
+nodes:
+  BPF3-16G-1:
+    health: good
+    runner_count: 0
+    runners: []
+    type: banana-pi-f3
+  BPF3-4G-1:
+    health: good
+    runner_count: 0
+    runners: []
+    type: banana-pi-f3
+  banana-pi-f3:
+    health: good
+    runner_count: 0
+    runners: []
+    type: banana-pi-f3
+  qemu:
+    health: good
+    runner_count: 0
+    runners: []
+    type: qemu
+  qemu-system-riscv64:
+    health: good
+    runner_count: 3
+    runners: []
+    type: qemu
+  sf2-3:
+    health: good
+    runner_count: 1
+    runners:
+    - gitlab_project_link: https://gitlab.com/10xengineers/Cloud-V
+      id: sf2-3-runner-1
+      registered_at: '2025-07-02T16:25:59.730572+00:00'
+      token: glrt-_sknbJ-d_37Ik-GtP3i8SW86MQpwOnA1b2JyCnQ6Mwp1OjdyY2dvFw.01.1i093cf0m
+      url: https://gitlab.com
+      user_email: ali.tariq@10xengineers.ai
+    type: visionfive2
+  sf2-4:
+    health: good
+    runner_count: 0
+    runners: []
+    type: visionfive2
+  visionfive2:
+    health: good
+    runner_count: 0
+    runners: []
+    type: visionfive2

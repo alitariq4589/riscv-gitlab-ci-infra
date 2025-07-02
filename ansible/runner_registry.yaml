@@ -1,0 +1,26 @@
+nodes:
+  BPF3-16G-1:
+    health: good
+    runner_count: 0
+    runners: []
+    type: banana-pi-f3
+  BPF3-4G-1:
+    health: good
+    runner_count: 0
+    runners: []
+    type: banana-pi-f3
+  qemu-system-riscv64:
+    health: good
+    runner_count: 3
+    runners: []
+    type: qemu
+  sf2-1:
+    health: good
+    runner_count: 0
+    runners: []
+    type: visionfive2
+  sf2-2:
+    health: good
+    runner_count: 0
+    runners: []
+    type: visionfive2

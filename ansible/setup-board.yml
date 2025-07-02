@@ -1,0 +1,72 @@
+---
+- name: Setup board
+  hosts: sf2-3-root
+
+  # Add necessary packages with following task
+  tasks:
+    - name: Install packages
+      apt:
+        pkg:
+          - golang
+        update_cache: yes
+      async: 1200
+      poll: 5
+    
+    # Clone the GitLab Runner repository
+    - name: Clone repository as gitlab-runner-user
+      ansible.builtin.git:
+        repo: https://gitlab.com/gitlab-org/gitlab-runner.git
+        dest: '/home/gitlab-runner-user/gitlab-runner'
+        single_branch: yes
+        version: 'main'
+      become: yes
+      become_user: gitlab-runner-user
+      
+    # Build the GitLab runner
+    - name: Build GitLab Runner and helper binaries
+      ansible.builtin.shell: |
+        cd /home/gitlab-runner-user/gitlab-runner
+        git checkout v17.10.0           # Changing to a working version for RISC-V. The working version means the gitlab-runner should run without errors and there should be a runner-helper image available in the gitlab container registry for the version compiled for gitlab.
+        make -j$(nproc) deps
+        make -j$(nproc) runner-and-helper-bin-host
+      args:
+        chdir: /home/gitlab-runner-user/gitlab-runner
+      become: yes
+      become_user: gitlab-runner-user
+
+
+    - name: Add gitlab-runner-user to docker group
+      user:
+        name: gitlab-runner-user
+        groups: docker
+        append: yes
+
+    - name: Create systemd service file for gitlab-runner
+      copy:
+        dest: /etc/systemd/system/gitlab-runner.service
+        content: |
+          [Unit]
+          Description=GitLab Runner
+          After=network.target
+
+          [Service]
+          User=gitlab-runner-user
+          Group=internal_users
+          ExecStart=/home/gitlab-runner-user/gitlab-runner/out/binaries/gitlab-runner-linux-riscv64 run
+          Restart=always
+          RestartSec=3
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+
+    - name: Enable and start gitlab-runner service
+      systemd:
+        name: gitlab-runner.service
+        enabled: yes
+        state: started
+
+  handlers:
+    - name: Reload systemd
+      command: systemctl daemon-reload

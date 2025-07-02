@@ -170,6 +170,9 @@ def get_healthy_targets(registry, runner_type):
     Gets a list of healthy nodes for a specific type,
     sorted by the number of runners (least first).
     """
+    # Use .get("nodes", {}) to safely access the "nodes" key.
+    # If "nodes" is missing or None, it defaults to an empty dictionary,
+    # preventing the AttributeError.
     healthy_nodes = {
         name: data for name, data in registry.get("nodes", {}).items()
         if data.get("health") == "good" and data.get("type") == runner_type
@@ -214,23 +217,61 @@ def load_registry(registry_path):
     """
     This function loads the runners_registry.yaml YAML file.
     If any such file does not exist, it creates the file
-    with a default structure.
+    with a default structure. If the file exists but is empty or malformed,
+    it also initializes it with the default structure.
     """
-    if not os.path.exists(registry_path):
-        # Default structure for an empty registry if it doesn't exist
-        empty_registry = {
-            "nodes": {
-                "visionfive2": {"health": "good", "type": "visionfive2", "runner_count": 0, "runners": []},
-                "qemu": {"health": "good", "type": "qemu", "runner_count": 0, "runners": []},
-                "banana-pi-f3": {"health": "good", "type": "banana-pi-f3", "runner_count": 0, "runners": []}
-            }
+    default_registry_structure = {
+        "nodes": {
+            "visionfive2": {"health": "good", "type": "visionfive2", "runner_count": 0, "runners": []},
+            "qemu": {"health": "good", "type": "qemu", "runner_count": 0, "runners": []},
+            "banana-pi-f3": {"health": "good", "type": "banana-pi-f3", "runner_count": 0, "runners": []}
         }
+    }
+
+    if not os.path.exists(registry_path):
+        logger.info(f"Registry file not found at {registry_path}. Creating with default structure.")
         with open(registry_path, "w") as f:
-            yaml.dump(empty_registry, f, default_flow_style=False)
-        return empty_registry
+            yaml.dump(default_registry_structure, f, default_flow_style=False)
+        return default_registry_structure
     else:
-        with open(registry_path, "r") as f:
-            return yaml.safe_load(f)
+        try:
+            with open(registry_path, "r") as f:
+                registry = yaml.safe_load(f)
+                
+                # If the file is empty or contains invalid YAML resulting in None
+                if registry is None:
+                    logger.warning(f"Registry file at {registry_path} is empty or invalid. Initializing with default structure.")
+                    registry = default_registry_structure
+                    # Overwrite the empty/invalid file with the default structure
+                    with open(registry_path, "w") as wf:
+                        yaml.dump(registry, wf, default_flow_style=False)
+                
+                # Ensure 'nodes' key exists and is a dictionary
+                if "nodes" not in registry or not isinstance(registry["nodes"], dict):
+                    logger.warning(f"Registry file at {registry_path} has missing or malformed 'nodes' section. Reinitializing with default structure.")
+                    registry = default_registry_structure
+                    with open(registry_path, "w") as wf:
+                        yaml.dump(registry, wf, default_flow_style=False)
+                else:
+                    # Ensure all default nodes are present and have correct structure
+                    for node_name, node_data in default_registry_structure["nodes"].items():
+                        if node_name not in registry["nodes"]:
+                            registry["nodes"][node_name] = node_data
+                        else:
+                            # Ensure 'runner_count' and 'runners' exist for existing nodes
+                            if "runner_count" not in registry["nodes"][node_name]:
+                                registry["nodes"][node_name]["runner_count"] = 0
+                            if "runners" not in registry["nodes"][node_name] or not isinstance(registry["nodes"][node_name]["runners"], list):
+                                registry["nodes"][node_name]["runners"] = []
+
+        except yaml.YAMLError as e:
+            logger.error(f"Error parsing YAML from {registry_path}: {e}. Initializing with default structure.")
+            registry = default_registry_structure
+            # Overwrite the malformed file with the default structure
+            with open(registry_path, "w") as wf:
+                yaml.dump(registry, wf, default_flow_style=False)
+        
+        return registry
 
 
 def register_runner_attempt(target, gitlab_server_url, runner_reg_token, log_file, inventory_file, runner_name, runner_registeration_playbook):
@@ -424,6 +465,7 @@ if __name__ == '__main__':
     os.makedirs(os.path.join(APP_ROOT, "templates"), exist_ok=True)
 
     # Initialize the registry file if it doesn't exist to ensure initial structure
+    # This also handles cases where it exists but is empty/malformed
     load_registry(RUNNER_REGISTRY_FILE)
 
     app.run(debug=True) # Set debug=False for production
