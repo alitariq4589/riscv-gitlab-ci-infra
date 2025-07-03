@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RISC-V Board Setup Status</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Dark background */
+            color: #cbd5e1; /* Light text */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .main-container {
+            @apply bg-[#1e293b] p-10 rounded-3xl shadow-2xl;
+            max-width: 900px;
+            width: 95%;
+        }
+        .status-table {
+            @apply w-full text-left table-auto border-collapse;
+        }
+        .status-table th, .status-table td {
+            @apply py-3 px-4 border-b border-gray-700;
+        }
+        .status-table th {
+            @apply bg-gray-700 text-gray-200 font-semibold uppercase text-sm;
+        }
+        .status-table td {
+            @apply text-gray-300;
+        }
+        .status-table tr:nth-child(even) {
+            @apply bg-gray-800;
+        }
+        .status-table tr:hover {
+            @apply bg-gray-700;
+        }
+        .status-badge {
+            @apply px-3 py-1 rounded-full text-xs font-semibold;
+        }
+        .status-success {
+            @apply bg-green-500 text-white;
+        }
+        .status-undergoing {
+            @apply bg-yellow-500 text-white;
+        }
+        .status-failed {
+            @apply bg-red-500 text-white;
+        }
+        .status-unknown {
+            @apply bg-gray-500 text-white;
+        }
+        .btn {
+            @apply inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md border-4 border-blue-700 hover:bg-blue-700 hover:shadow-lg hover:border-blue-800 transition duration-150 ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1 class="text-center text-4xl font-extrabold text-gray-100 mb-8">
+            RISC-V Board Setup Status
+        </h1>
+
+        <div class="overflow-x-auto rounded-lg shadow-md">
+            <table class="status-table">
+                <thead>
+                    <tr>
+                        <th>Board Name</th>
+                        <th>IP Address</th>
+                        <th>SSH Port</th>
+                        <th>Setup Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for board_name, board_data in boards.items() %}
+                    <tr>
+                        <td>{{ board_name }}</td>
+                        <td>{{ board_data.ip_address | default('N/A') }}</td> {# Assuming IP might be stored if you expand registry #}
+                        <td>{{ board_data.ssh_port | default('22') }}</td> {# Assuming SSH port might be stored #}
+                        <td>
+                            {% if board_data.setup_status == 'Successfully Setup' %}
+                                <span class="status-badge status-success">Successfully Setup</span>
+                            {% elif board_data.setup_status == 'Undergoing Setup' %}
+                                <span class="status-badge status-undergoing">Undergoing Setup</span>
+                            {% elif board_data.setup_status == 'Setup Failed' %}
+                                <span class="status-badge status-failed">Setup Failed</span>
+                            {% else %}
+                                <span class="status-badge status-unknown">Unknown</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-8 text-center space-x-4">
+            <button onclick="location.reload()" class="btn">Refresh Status</button>
+            <a href="{{ url_for('render_index_page') }}" class="btn">Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>

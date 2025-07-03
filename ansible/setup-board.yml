@@ -1,6 +1,6 @@
 ---
 - name: Setup board
-  hosts: sf2-3-root
+  hosts: "{{target_node}}"
 
   # Add necessary packages with following task
   tasks:
@@ -8,29 +8,25 @@
       apt:
         pkg:
           - golang
+          - docker.io
         update_cache: yes
       async: 1200
       poll: 5
     
     # Clone the GitLab Runner repository
-    - name: Clone repository as gitlab-runner-user
-      ansible.builtin.git:
-        repo: https://gitlab.com/gitlab-org/gitlab-runner.git
-        dest: '/home/gitlab-runner-user/gitlab-runner'
-        single_branch: yes
-        version: 'main'
+    - name: Fetch the GitLab Runner Tarball
+      ansible.builtin.get_url:
+        url: https://github.com/alitariq4589/riscv-gitlab-ci-infra/releases/download/17.10.0/gitlab-runner-17.10.0.tar.gz
+        dest: '/home/gitlab-runner-user/gitlab-runner-17.10.0.tar.gz'
       become: yes
       become_user: gitlab-runner-user
       
     # Build the GitLab runner
-    - name: Build GitLab Runner and helper binaries
+    - name: Extract the GitLab Runner Tarball
       ansible.builtin.shell: |
-        cd /home/gitlab-runner-user/gitlab-runner
-        git checkout v17.10.0           # Changing to a working version for RISC-V. The working version means the gitlab-runner should run without errors and there should be a runner-helper image available in the gitlab container registry for the version compiled for gitlab.
-        make -j$(nproc) deps
-        make -j$(nproc) runner-and-helper-bin-host
+        tar -xf gitlab-runner-17.10.0.tar.gz && rm gitlab-runner-17.10.0.tar.gz
       args:
-        chdir: /home/gitlab-runner-user/gitlab-runner
+        chdir: /home/gitlab-runner-user
       become: yes
       become_user: gitlab-runner-user
 

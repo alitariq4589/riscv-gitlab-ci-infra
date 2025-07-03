@@ -1,0 +1,40 @@
+---
+- name: Unregister and Clean Up RISC-V Board
+  hosts: "{{ target_node }}"
+  gather_facts: no # No need to gather facts for cleanup
+
+  tasks:
+    - name: Stop GitLab Runner service
+      ansible.builtin.systemd:
+        name: gitlab-runner.service
+        state: stopped
+        enabled: no
+      ignore_errors: yes # Continue even if service isn't running or doesn't exist
+
+    - name: Disable and remove GitLab Runner service file
+      ansible.builtin.file:
+        path: /etc/systemd/system/gitlab-runner.service
+        state: absent
+      become: yes
+      ignore_errors: yes
+
+    - name: Reload systemd daemon after removing service file
+      ansible.builtin.command: systemctl daemon-reload
+      become: yes
+      ignore_errors: yes
+
+    - name: Remove gitlab-runner-user from docker group
+      ansible.builtin.user:
+        name: gitlab-runner-user
+        groups: docker
+        state: absent # Remove user from specified group
+        append: yes # Ensure it only removes from this group
+      become: yes
+      ignore_errors: yes # Continue if user is not in group
+
+    - name: Remove GitLab Runner installation directory
+      ansible.builtin.file:
+        path: /home/gitlab-runner-user/gitlab-runner
+        state: absent
+      become: yes
+      ignore_errors: yes # Continue if directory doesn't exist

@@ -1,2 +1,5 @@
 ansible/inventory.ini
 ansible-registration.log
+ansible-setup.log
+ansible-unregister.log
+runner_registry.yaml
