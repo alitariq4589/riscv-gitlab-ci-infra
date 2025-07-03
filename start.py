@@ -262,6 +262,7 @@ def register_runner_attempt(target, gitlab_server_url, runner_reg_token, log_fil
     logger.info(f"Executing Ansible command for runner registration: {' '.join(cmd)}")
     try:
         with open(log_file, "a") as f:
+            f.write(f"\n--- Runner Registration Attempt Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
             process = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, check=False)
         logger.info(f"Ansible registration playbook return code: {process.returncode}")
         return process.returncode == 0
@@ -281,11 +282,12 @@ def setup_board_attempt(target_node, log_file, inventory_file, setup_playbook):
         "ansible-playbook", setup_playbook,
         "-i", inventory_file,
         "-e", f"target_node={target_node}", # Pass the target node dynamically
-        "--extra-vars", f"ansible_user=gitlab-runner-user" # Ensure ansible_user is passed for setup
+        "--extra-vars", f"ansible_user=root" # Ensure ansible_user is passed for setup
     ]
     logger.info(f"Executing Ansible command for board setup: {' '.join(cmd)}")
     try:
         with open(log_file, "a") as f: # Use the dedicated setup log file
+            f.write(f"\n--- Board Setup Attempt Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
             process = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, check=False)
         logger.info(f"Ansible board setup playbook return code: {process.returncode}")
         return process.returncode == 0
@@ -310,6 +312,7 @@ def unregister_board_attempt(target_node, log_file, inventory_file, unregister_p
     logger.info(f"Executing Ansible command for board unregistration: {' '.join(cmd)}")
     try:
         with open(log_file, "a") as f: # Use the dedicated unregister log file
+            f.write(f"\n--- Board Unregistration Attempt Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
             process = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, check=False)
         logger.info(f"Ansible board unregistration playbook return code: {process.returncode}")
         return process.returncode == 0
@@ -523,7 +526,7 @@ def render_runner_registration_page():
     """
     Renders the GitLab Runner registration form.
     """
-    return render_template('runner_token_ask.html')
+    return render_template('register-runner.html')
 
 @app.route('/gitlab-runner-result-page', methods=['POST'])
 def handle_runner_registration_post():

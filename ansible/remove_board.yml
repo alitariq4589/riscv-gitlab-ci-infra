@@ -18,6 +18,13 @@
       become: yes
       ignore_errors: yes
 
+    - name: Remove the GitLab Runner data and configuration directory
+      ansible.builtin.file:
+        path: /home/gitlab-runner-user/.gitlab-runner
+        state: absent
+      become: yes
+      ignore_errors: yes
+
     - name: Reload systemd daemon after removing service file
       ansible.builtin.command: systemctl daemon-reload
       become: yes
