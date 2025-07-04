@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,46 +13,56 @@
       background-color: #0a0f2c;
       color: #fff;
     }
+
     .container {
       max-width: 1200px;
     }
+
     .form-control {
       @apply block w-full px-4 py-2 text-base font-normal text-white bg-transparent border border-blue-400 rounded-lg transition ease-in-out m-0 focus:ring-2 focus:ring-blue-600 focus:outline-none placeholder:text-blue-300;
     }
+
     .btn-primary {
       @apply inline-block px-8 py-3 bg-blue-600 text-white font-medium text-lg leading-tight uppercase rounded-lg shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-blue-800 active:shadow-lg transition duration-150 ease-in-out;
     }
+
     .s_title {
       background: linear-gradient(to right, #3b82f6, #6366f1);
       color: white;
     }
+
     .s_text_block {
       background: rgba(13, 30, 60, 0.7);
       border: 1px solid rgba(59, 130, 246, 0.3);
       border-radius: 12px;
       box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
     }
+
     .modal {
       display: none;
       position: fixed;
       z-index: 1000;
-      left: 0; top: 0;
-      width: 100%; height: 100%;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
       overflow: auto;
-      background-color: rgba(0,0,0,0.4);
+      background-color: rgba(0, 0, 0, 0.4);
       justify-content: center;
       align-items: center;
     }
+
     .modal-content {
       background-color: #1f2937;
       color: white;
       padding: 20px;
       border-radius: 12px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
       max-width: 500px;
       text-align: center;
       position: relative;
     }
+
     .close-button {
       position: absolute;
       top: 10px;
@@ -61,6 +72,7 @@
       font-weight: bold;
       cursor: pointer;
     }
+
     .close-button:hover {
       color: white;
     }
@@ -70,23 +82,29 @@
 <style>
   .form-control {
     @apply block w-full px-4 py-2 text-base font-normal rounded-lg transition duration-150 ease-in-out;
-    background-color: rgba(30, 41, 59, 0.8); /* dark navy blue */
-    border: 1px solid rgba(59, 130, 246, 0.4); /* soft blue border */
-    color: #e0f2fe; /* light blue text */
+    background-color: rgba(30, 41, 59, 0.8);
+    /* dark navy blue */
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    /* soft blue border */
+    color: #e0f2fe;
+    /* light blue text */
   }
 
   .form-control::placeholder {
-    color: #93c5fd; /* blue-300 */
+    color: #93c5fd;
+    /* blue-300 */
   }
 
   .form-control:focus {
-    border-color: #3b82f6; /* bright blue */
+    border-color: #3b82f6;
+    /* bright blue */
     box-shadow: 0 0 10px #3b82f6aa;
     outline: none;
   }
 
   .form-wrapper {
-    background-color: rgba(13, 30, 60, 0.6); /* dark card bg */
+    background-color: rgba(13, 30, 60, 0.6);
+    /* dark card bg */
     border: 1px solid rgba(59, 130, 246, 0.3);
     border-radius: 1rem;
     padding: 2rem;
@@ -94,7 +112,8 @@
   }
 
   .form-label {
-    color: #bfdbfe; /* text-blue-200 */
+    color: #bfdbfe;
+    /* text-blue-200 */
   }
 
   select.form-control {
@@ -122,10 +141,8 @@
     <!-- Image Section -->
     <section class="s_text_block w-full py-6 mt-8">
       <div class="container mx-auto px-4 flex justify-center">
-        <img
-          src="{{ url_for('static', filename='gitlab-runner-riscv.drawio.png') }}"
-          class="img-fluid rounded-lg shadow-md"
-          alt="GitLab to RISC-V Runner Flow"
+        <img src="{{ url_for('static', filename='gitlab-runner-riscv.drawio.png') }}"
+          class="img-fluid rounded-lg shadow-md" alt="GitLab to RISC-V Runner Flow"
           style="max-width: 500px; height: auto;" />
       </div>
     </section>
@@ -143,11 +160,13 @@
         </p>
         <p class="text-center text-lg mb-2 text-blue-300">
           Check the
-          <a href="https://10x-engineers.github.io/riscv-ci-partners/setting_up_gitlab_runner/" target="_blank" class="text-blue-400 hover:underline">documentation</a>
+          <a href="https://10x-engineers.github.io/riscv-ci-partners/setting_up_gitlab_runner/" target="_blank"
+            class="text-blue-400 hover:underline">documentation</a>
           for more details.
         </p>
         <p class="text-center text-lg mb-2 text-blue-300">
-          Watch <a href="https://youtu.be/OAkl_JE8zdM" target="_blank" class="text-blue-400 hover:underline">how to add GitLab RISC-V Runner</a>.
+          Watch <a href="https://youtu.be/OAkl_JE8zdM" target="_blank" class="text-blue-400 hover:underline">how to add
+            GitLab RISC-V Runner</a>.
         </p>
       </div>
     </section>
@@ -159,7 +178,8 @@
           <!-- Form fields -->
           {% for field in ['user_email', 'gitlab_project_link', 'gitlab_server_url', 'runner_token'] %}
           <div class="mb-4 flex flex-col sm:flex-row items-center">
-            <label for="{{ field }}" class="w-full sm:w-1/3 text-left sm:text-right pr-4 mb-2 sm:mb-0 text-blue-200 font-medium capitalize">
+            <label for="{{ field }}"
+              class="w-full sm:w-1/3 text-left sm:text-right pr-4 mb-2 sm:mb-0 text-blue-200 font-medium capitalize">
               {{ field.replace('_', ' ') }}:
             </label>
             <div class="w-full sm:w-2/3">
@@ -172,7 +192,8 @@
           {% endfor %}
 
           <div class="mb-6 flex flex-col sm:flex-row items-center">
-            <label for="target_platform" class="w-full sm:w-1/3 text-left sm:text-right pr-4 mb-2 sm:mb-0 text-blue-200 font-medium">
+            <label for="target_platform"
+              class="w-full sm:w-1/3 text-left sm:text-right pr-4 mb-2 sm:mb-0 text-blue-200 font-medium">
               Select a RISC-V machine:
             </label>
             <div class="w-full sm:w-2/3">
@@ -189,17 +210,25 @@
             <p class="text-orange-400 font-semibold mb-4">
               Note: Runner registration can take between a few seconds to a minute.
             </p>
-            <button type="submit" class="btn-primary">
+            <button type="submit"
+              class="inline-block px-8 py-3 bg-blue-600 text-white font-medium text-lg leading-tight uppercase rounded-lg shadow-md border-4 border-blue-700 hover:bg-blue-700 hover:shadow-lg hover:border-blue-800 transition duration-150 ease-in-out">
               Submit Details
             </button>
+
+            <a href="{{ url_for('render_index_page') }}"
+              class="inline-block px-8 py-3 bg-blue-600 text-white font-medium text-lg leading-tight uppercase rounded-lg shadow-md border-4 border-blue-700 hover:bg-blue-700 hover:shadow-lg hover:border-blue-800 transition duration-150 ease-in-out">
+              Back to Home
+            </a>
 
             <div class="mt-8 p-6 border border-blue-600 rounded-xl bg-[#1f2937] text-blue-100 shadow-sm">
               <h3 class="mt-0 text-2xl font-semibold mb-3 text-white">Need Help?</h3>
               <p class="text-lg mb-3">
-                If you experience any issues while registering a runner, or have questions, feedback, or concerns — create an issue in the repository.
+                If you experience any issues while registering a runner, or have questions, feedback, or concerns —
+                create an issue in the repository.
               </p>
               <p class="text-lg font-bold"></p> GitHub Repository:
-                <a href="https://github.com/alitariq4589/riscv-gitlab-ci-infra">https://github.com/alitariq4589/riscv-gitlab-ci-infra</a>
+              <a
+                href="https://github.com/alitariq4589/riscv-gitlab-ci-infra">https://github.com/alitariq4589/riscv-gitlab-ci-infra</a>
               </p>
               <p class="text-lg">We’ll get back to you as soon as possible!</p>
             </div>
@@ -209,4 +238,5 @@
     </section>
   </div>
 </body>
+
 </html>
