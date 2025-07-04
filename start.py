@@ -21,10 +21,13 @@ RUNNER_REGISTRY_FILE = os.path.join(APP_ROOT, "runner_registry.yaml")
 INVENTORY_FILE = os.path.join(APP_ROOT, "ansible", "inventory.ini")
 LOG_FILE = os.path.join(APP_ROOT, "ansible-registration.log")
 ANSIBLE_SETUP_LOG_FILE = os.path.join(APP_ROOT, "ansible-setup.log")
-ANSIBLE_UNREGISTER_LOG_FILE = os.path.join(APP_ROOT, "ansible-unregister.log") # New log file for unregistration
+ANSIBLE_UNREGISTER_BOARD_LOG_FILE = os.path.join(APP_ROOT, "ansible-unregister-board.log") # Renamed for clarity
+ANSIBLE_UNREGISTER_RUNNER_LOG_FILE = os.path.join(APP_ROOT, "ansible-unregister-runner.log") # New log file for unregistering runner
+
 RUNNER_REGISTRATION_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "register-runner.yml")
-SETUP_BOARD_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "setup-board.yml")
-UNREGISTER_BOARD_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "remove_board.yml") # New playbook path
+SETUP_BOARD_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "setup_board.yml") # Corrected filename
+UNREGISTER_BOARD_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "unregister_board.yml") # Corrected filename
+UNREGISTER_GITLAB_RUNNER_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "unregister_gitlab_runner.yml") # New playbook path
 
 # --- Utility Functions ---
 
@@ -39,24 +42,45 @@ def check_gitlab_server(url):
         logger.info(f"'{url}' does not appear to be a valid URL format.")
         return False
     logger.info(f"\n--- Checking URL: {url} ---")
+
+    # Add a User-Agent header to mimic a browser request
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
+    # Attempt 1: HEAD request and X-Gitlab-Instance header
     try:
-        head_resp = requests.head(url, timeout=5, allow_redirects=True)
+        logger.info(f"Attempting HEAD request to {url}")
+        head_resp = requests.head(url, timeout=5, allow_redirects=True, headers=headers)
+        logger.info(f"HEAD response status: {head_resp.status_code}, headers: {head_resp.headers.get('X-Gitlab-Instance')}")
         if 'X-Gitlab-Instance' in head_resp.headers:
-            logger.info(f"'{url}' is a GitLab URL (X-Gitlab-Instance header confirmed).")
+            logger.info(f"'{url}' is a GitLab URL (X-Gitlab-Instance header confirmed via HEAD).")
             return True
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as e:
+        logger.info(f"HEAD request to {url} failed: {e}")
         pass
+
+    # Attempt 2: GET request to base URL and X-Gitlab-Instance header or content check
     try:
-        base_resp = requests.get(url, timeout=5, allow_redirects=True)
+        logger.info(f"Attempting GET request to {url}")
+        base_resp = requests.get(url, timeout=5, allow_redirects=True, headers=headers)
+        logger.info(f"GET response status: {base_resp.status_code}, headers: {base_resp.headers.get('X-Gitlab-Instance')}")
         if 'X-Gitlab-Instance' in base_resp.headers:
-            logger.info(f"'{url}' is a GitLab URL (Homepage content 'GitLab' confirmed).")
+            logger.info(f"'{url}' is a GitLab URL (Homepage content 'GitLab' confirmed via GET header).")
             return True
-    except requests.exceptions.RequestException:
+        if "GitLab" in base_resp.text:
+            logger.info(f"'{url}' is a GitLab URL (Homepage content 'GitLab' confirmed via GET text).")
+            return True
+    except requests.exceptions.RequestException as e:
+        logger.info(f"GET request to {url} failed: {e}")
         pass
+
+    # Attempt 3: GET request to /api/v4/version endpoint
     api_version_url = f"{url}/api/v4/version"
     logger.info(f"Attempting to reach GitLab API at: {api_version_url}")
     try:
-        api_resp = requests.get(api_version_url, timeout=5)
+        api_resp = requests.get(api_version_url, timeout=5, headers=headers)
+        logger.info(f"API /version response status: {api_resp.status_code}, content-type: {api_resp.headers.get('Content-Type')}")
         if api_resp.status_code == 200:
             if 'application/json' in api_resp.headers.get('Content-Type', ''):
                 try:
@@ -65,6 +89,7 @@ def check_gitlab_server(url):
                         logger.info(f"'{url}' is a GitLab URL (API /version confirmed, version: {data['version']}).")
                         return True
                 except requests.exceptions.JSONDecodeError:
+                    logger.info(f"API /version response is not valid JSON.")
                     pass
         if 'X-Gitlab-Instance' in api_resp.headers:
             logger.info(f"'{url}' is a GitLab URL (API /version header confirmed, even with status {api_resp.status_code}).")
@@ -72,12 +97,16 @@ def check_gitlab_server(url):
         if "GitLab" in api_resp.text:
             logger.info(f"'{url}' is a GitLab URL (API /version content 'GitLab' confirmed, even with status {api_resp.status_code}).")
             return True
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as e:
+        logger.info(f"API /version request to {api_version_url} failed: {e}")
         pass
+
+    # Attempt 4: GET request to /-/health endpoint
     health_url = f"{url}/-/health"
     logger.info(f"Attempting to reach GitLab health endpoint at: {health_url}")
     try:
-        health_resp = requests.get(health_url, timeout=5)
+        health_resp = requests.get(health_url, timeout=5, headers=headers)
+        logger.info(f"/-/health response status: {health_resp.status_code}, content-type: {health_resp.headers.get('Content-Type')}")
         if health_resp.status_code == 200:
             if 'application/json' in health_resp.headers.get('Content-Type', ''):
                 try:
@@ -86,6 +115,7 @@ def check_gitlab_server(url):
                         logger.info(f"'{url}' is a GitLab URL (/-/health endpoint confirmed).")
                         return True
                 except requests.exceptions.JSONDecodeError:
+                    logger.info(f"/-/health response is not valid JSON.")
                     pass
         if 'X-Gitlab-Instance' in health_resp.headers:
             logger.info(f"'{url}' is a GitLab URL (/-/health header confirmed, even with status {health_resp.status_code}).")
@@ -93,12 +123,19 @@ def check_gitlab_server(url):
         if "GitLab" in health_resp.text:
             logger.info(f"'{url}' is a GitLab URL (/-/health content 'GitLab' confirmed, even with status {health_resp.status_code}).")
             return True
-    except requests.exceptions.RequestException:
-        pass
+    except requests.exceptions.RequestException as e:
+        logger.info(f"/-/health request to {health_url} failed: {e}")
+        return False # Return False here as this is a critical check
+    except Exception as e:
+        logger.info(f"An unexpected error occurred while checking '{url}': {e}")
+        return False
+
+    # Attempt 5: Fallback to login page check
     login_page_url = f"{url}/users/sign_in"
     logger.info(f"All API checks failed/undetermined. Falling back to login page check at: {login_page_url}")
     try:
-        login_resp = requests.get(login_page_url, timeout=5, allow_redirects=True)
+        login_resp = requests.get(login_page_url, timeout=5, allow_redirects=True, headers=headers)
+        logger.info(f"Login page response status: {login_resp.status_code}")
         if "_gitlab_session" in login_resp.headers.get("Set-Cookie", ""):
             logger.info(f"'{url}' is a GitLab URL (login page cookie confirmed).")
             return True
@@ -106,11 +143,12 @@ def check_gitlab_server(url):
             logger.info(f"'{url}' is a GitLab URL (login page content 'GitLab' confirmed).")
             return True
     except requests.exceptions.RequestException as e:
-        logger.info(f"Could not reach '{url}' or an error occurred: {e}")
+        logger.info(f"Could not reach '{url}' or an error occurred during login page check: {e}")
         return False
     except Exception as e:
         logger.info(f"An unexpected error occurred while checking '{url}': {e}")
         return False
+
     logger.info(f"'{url}' is not a GitLab URL (no conclusive evidence found after all checks).")
     return False
 
@@ -282,7 +320,7 @@ def setup_board_attempt(target_node, log_file, inventory_file, setup_playbook):
         "ansible-playbook", setup_playbook,
         "-i", inventory_file,
         "-e", f"target_node={target_node}", # Pass the target node dynamically
-        "--extra-vars", f"ansible_user=root" # Ensure ansible_user is passed for setup
+        "--extra-vars", f"ansible_user=gitlab-runner-user" # Ensure ansible_user is passed for setup
     ]
     logger.info(f"Executing Ansible command for board setup: {' '.join(cmd)}")
     try:
@@ -307,7 +345,7 @@ def unregister_board_attempt(target_node, log_file, inventory_file, unregister_p
         "ansible-playbook", unregister_playbook,
         "-i", inventory_file,
         "-e", f"target_node={target_node}",
-        "--extra-vars", f"ansible_user=root" # Ensure ansible_user is passed for cleanup
+        "--extra-vars", f"ansible_user=gitlab-runner-user" # Ensure ansible_user is passed for cleanup
     ]
     logger.info(f"Executing Ansible command for board unregistration: {' '.join(cmd)}")
     try:
@@ -321,6 +359,32 @@ def unregister_board_attempt(target_node, log_file, inventory_file, unregister_p
         return False
     except Exception as e:
         logger.error(f"Error running Ansible playbook for board unregistration: {e}")
+        return False
+
+def unregister_gitlab_runner_attempt(target_node, runner_id, log_file, inventory_file, unregister_runner_playbook):
+    """
+    Runs the Ansible playbook to unregister a specific GitLab runner.
+    Returns True if successful, False otherwise.
+    """
+    cmd = [
+        "ansible-playbook", unregister_runner_playbook,
+        "-i", inventory_file,
+        "-e", f"target_node={target_node}",
+        "-e", f"runner_id={runner_id}",
+        "--extra-vars", f"ansible_user=gitlab-runner-user"
+    ]
+    logger.info(f"Executing Ansible command for GitLab runner unregistration: {' '.join(cmd)}")
+    try:
+        with open(log_file, "a") as f:
+            f.write(f"\n--- GitLab Runner Unregistration Attempt Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+            process = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, check=False)
+        logger.info(f"Ansible GitLab runner unregistration playbook return code: {process.returncode}")
+        return process.returncode == 0
+    except FileNotFoundError:
+        logger.error("Error: 'ansible-playbook' command not found. Is Ansible installed and in your PATH?")
+        return False
+    except Exception as e:
+        logger.error(f"Error running Ansible playbook for GitLab runner unregistration: {e}")
         return False
 
 
@@ -525,8 +589,14 @@ def handle_add_board_post():
 def render_runner_registration_page():
     """
     Renders the GitLab Runner registration form.
+    Dynamically fetches available runner types from runner_registry.yaml.
     """
-    return render_template('register-runner.html')
+    registry = load_registry(RUNNER_REGISTRY_FILE)
+    available_runner_types = sorted(list(set(
+        node_data["type"] for node_name, node_data in registry.get("nodes", {}).items()
+        if "type" in node_data and node_data["type"] # Ensure 'type' exists and is not empty
+    )))
+    return render_template('register-runner.html', runner_types=available_runner_types)
 
 @app.route('/gitlab-runner-result-page', methods=['POST'])
 def handle_runner_registration_post():
@@ -633,14 +703,14 @@ def render_board_status_page():
     }
     return render_template('board_status.html', boards=boards_to_display)
 
-@app.route('/remove-board', methods=['GET'])
+@app.route('/unregister-board', methods=['GET'])
 def render_unregister_board_page():
     """
     Renders the form to unregister a RISC-V board.
     """
     return render_template('remove_board.html')
 
-@app.route('/remove-board', methods=['POST'])
+@app.route('/unregister-board', methods=['POST'])
 def handle_unregister_board_post():
     """
     Handles the submission of the form to unregister a RISC-V board.
@@ -654,7 +724,7 @@ def handle_unregister_board_post():
 
     registry = load_registry(RUNNER_REGISTRY_FILE)
     if board_name not in registry["nodes"]:
-        return render_template('unregister_board.html', message=f"Board '{board_name}' not found in the registry. Please ensure the name is correct.", is_error=True)
+        return render_template('remove_board.html', message=f"Board '{board_name}' not found in the registry. Please ensure the name is correct.", is_error=True)
     
     # Get board details from registry to construct inventory line for removal
     board_data = registry["nodes"][board_name]
@@ -671,7 +741,7 @@ def handle_unregister_board_post():
     unregister_success = False
     try:
         # Attempt to unregister the board using the playbook
-        unregister_success = unregister_board_attempt(board_name, ANSIBLE_UNREGISTER_LOG_FILE, INVENTORY_FILE, UNREGISTER_BOARD_PLAYBOOK)
+        unregister_success = unregister_board_attempt(board_name, ANSIBLE_UNREGISTER_BOARD_LOG_FILE, INVENTORY_FILE, UNREGISTER_BOARD_PLAYBOOK)
 
         if unregister_success:
             # Unregistration successful: Remove from inventory.ini and runner_registry.yaml
@@ -725,7 +795,7 @@ def handle_unregister_board_post():
             is_error = False
         else:
             # Unregistration failed: Keep in registry and inventory, provide error message
-            message = f"Failed to unregister board '{board_name}'. Please check the logs ({ANSIBLE_UNREGISTER_LOG_FILE}) for details and ensure the board is reachable via SSH."
+            message = f"Failed to unregister board '{board_name}'. Please check the logs ({ANSIBLE_UNREGISTER_BOARD_LOG_FILE}) for details and ensure the board is reachable via SSH."
             is_error = True
     except Exception as e:
         logger.error(f"An unexpected error occurred during unregistration of board '{board_name}': {e}")
@@ -733,7 +803,65 @@ def handle_unregister_board_post():
         is_error = True
     
     logger.info(f"Board '{board_name}' unregistration outcome: {'Success' if unregister_success else 'Failure'}.")
-    return render_template('unregister_board.html', message=message, is_error=is_error)
+    return render_template('remove_board.html', message=message, is_error=is_error)
+
+
+@app.route('/unregister-runner', methods=['GET'])
+def render_unregister_runner_page():
+    """
+    Renders the form to unregister a specific GitLab Runner.
+    """
+    return render_template('unregister_runner.html')
+
+@app.route('/unregister-runner', methods=['POST'])
+def handle_unregister_runner_post():
+    """
+    Handles the submission of the form to unregister a specific GitLab Runner.
+    """
+    node_name = request.form.get('node_name')
+    runner_id = request.form.get('runner_id')
+
+    if not all([node_name, runner_id]):
+        return render_template('unregister_runner.html', message="Board Name/ID and Runner ID are required.", is_error=True)
+
+    registry = load_registry(RUNNER_REGISTRY_FILE)
+    if node_name not in registry["nodes"]:
+        return render_template('unregister_runner.html', message=f"Board '{node_name}' not found in the registry.", is_error=True)
+
+    node_runners = registry["nodes"][node_name].get("runners", [])
+    runner_found = False
+    for runner in node_runners:
+        if runner.get("id") == runner_id:
+            runner_found = True
+            break
+    
+    if not runner_found:
+        return render_template('unregister_runner.html', message=f"Runner ID '{runner_id}' not found on board '{node_name}'.", is_error=True)
+
+    unregister_success = False
+    try:
+        # Attempt to unregister the GitLab runner using the playbook
+        unregister_success = unregister_gitlab_runner_attempt(node_name, runner_id, ANSIBLE_UNREGISTER_RUNNER_LOG_FILE, INVENTORY_FILE, UNREGISTER_GITLAB_RUNNER_PLAYBOOK)
+
+        if unregister_success:
+            # Remove the runner from the registry
+            registry["nodes"][node_name]["runners"] = [
+                r for r in registry["nodes"][node_name]["runners"] if r.get("id") != runner_id
+            ]
+            registry["nodes"][node_name]["runner_count"] = len(registry["nodes"][node_name]["runners"])
+            save_registry(registry, RUNNER_REGISTRY_FILE)
+            logger.info(f"Runner '{runner_id}' successfully removed from board '{node_name}' in registry.")
+            message = f"GitLab Runner '{runner_id}' successfully unregistered from board '{node_name}' and removed."
+            is_error = False
+        else:
+            message = f"Failed to unregister GitLab Runner '{runner_id}' from board '{node_name}'. Please check the logs ({ANSIBLE_UNREGISTER_RUNNER_LOG_FILE}) for details."
+            is_error = True
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during GitLab runner unregistration: {e}")
+        message = f"An unexpected error occurred: {e}"
+        is_error = True
+    
+    return render_template('unregister_runner.html', message=message, is_error=is_error)
 
 
 # Run the Flask app

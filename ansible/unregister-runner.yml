@@ -1,0 +1,59 @@
+---
+- name: Unregister GitLab Runner
+  hosts: "{{ target_node }}"
+  gather_facts: no
+
+  tasks:
+    - name: Get runner details from config.toml (if file exists)
+      ansible.builtin.slurp:
+        src: /home/gitlab-runner-user/.gitlab-runner/config.toml
+      register: runner_config_file
+      ignore_errors: yes
+
+    - name: Parse runner config toml
+      ansible.builtin.set_fact:
+        runner_config: "{{ runner_config_file.content | b64decode | from_toml }}"
+      when: runner_config_file.content is defined
+      ignore_errors: yes
+
+    - name: Extract URL and token for the specific runner ID
+      ansible.builtin.set_fact:
+        runner_url: "{{ item.url }}"
+        runner_auth_token: "{{ item.token }}"
+      loop: "{{ runner_config.runners | default([]) }}"
+      when:
+        - runner_config is defined
+        - item.name is defined
+        - item.name == runner_id # Match by runner_id (which is the runner name in config.toml)
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Unregister GitLab Runner from GitLab server by token and URL
+      ansible.builtin.command: >
+        /home/gitlab-runner-user/gitlab-runner/out/binaries/gitlab-runner-linux-riscv64 unregister
+        --url "{{ runner_url }}"
+        --token "{{ runner_auth_token }}"
+      args:
+        chdir: /home/gitlab-runner-user/gitlab-runner/
+      become: yes
+      become_user: gitlab-runner-user
+      when: runner_url is defined and runner_auth_token is defined
+      ignore_errors: yes # Continue even if unregistration on GitLab fails (e.g., already unregistered)
+      register: unregister_result
+      # This command removes the runner from GitLab.
+      # Note: The `gitlab-runner unregister` command requires the runner's authentication token,
+      # which is different from the registration token. We assume the `config.toml` contains this.
+
+    - name: Unregister GitLab Runner from GitLab server by name (fallback if token/URL not found or failed)
+      ansible.builtin.command: >
+        /home/gitlab-runner-user/gitlab-runner/out/binaries/gitlab-runner-linux-riscv64 unregister
+        --name "{{ runner_id }}"
+      args:
+        chdir: /home/gitlab-runner-user/gitlab-runner/
+      become: yes
+      become_user: gitlab-runner-user
+      when:
+        - unregister_result is not defined or unregister_result.failed # Only run if previous unregister failed or skipped
+        - runner_id is defined
+      ignore_errors: yes # Continue even if unregistration on GitLab fails (e.g., already unregistered)
+
