@@ -398,8 +398,9 @@ def save_registry(registry, runner_registry_file_path):
 
 def check_latest_failed_attempt(log_file):
     """
-    Parses the Ansible log to identify the exact failing task during GitLab Runner registration.
-    
+    Parses the Ansible log to identify the most recent failing task related to
+    GitLab Runner registration.
+
     Returns:
         0: No error or unrecognized failure
         1: Invalid GitLab Registration Token (verification failed)
@@ -412,24 +413,29 @@ def check_latest_failed_attempt(log_file):
         return 0
 
     with open(log_file, "r") as f:
-        log = f.read()
+        lines = f.readlines()
 
-    # Check specific fail messages
-    if "TASK [Fail if runner verification failed]" in log:
-        logger.info("Detected task failure: Invalid GitLab Registration Token.")
-        return 1
-    if "TASK [Fail if request cannot be processed]" in log:
-        logger.info("Detected task failure: Unprocessable Entity (422).")
-        return 2
-    if "TASK [Fail if runner registration was not successful]" in log:
-        logger.info("Detected task failure: Unknown registration failure.")
-        return 4
-    if "TASK [Catch-all failure if command failed" in log:
-        if "not found" in log and "gitlab-runner-linux-riscv64" in log:
-            logger.info("Detected task failure: GitLab Runner binary not found.")
-            return 3
-        logger.info("Detected catch-all failure: Unrecognized error.")
-        return 4
+    # Reverse the log lines for last error scanning
+    for i in range(len(lines)-1, -1, -1):
+        line = lines[i]
+
+        if "TASK [Fail if runner verification failed]" in line:
+            logger.info("Detected latest failure: Invalid GitLab Registration Token.")
+            return 1
+        if "TASK [Fail if request cannot be processed]" in line:
+            logger.info("Detected latest failure: Unprocessable Entity (422).")
+            return 2
+        if "TASK [Fail if runner registration was not successful]" in line:
+            logger.info("Detected latest failure: Unknown registration failure.")
+            return 4
+        if "TASK [Catch-all failure if command failed" in line:
+            # Look forward for more details like "not found"
+            for j in range(i, min(i+10, len(lines))):
+                if "not found" in lines[j] and "gitlab-runner-linux-riscv64" in lines[j]:
+                    logger.info("Detected latest failure: GitLab Runner binary not found.")
+                    return 3
+            logger.info("Detected catch-all failure: Unrecognized error.")
+            return 4
 
     logger.info("No known registration errors found.")
     return 0
