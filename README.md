@@ -32,3 +32,13 @@ cd riscv-gitlab-ci-infra
 pip install -r requirements.txt
 ./start.py
 ```
+
+After running this command, the web UI can be accessible through web browser at `localhost:5000`.
+
+## Contributing
+
+We welcome any contribution to this flow. If you find any issues, feel free to create an issue.
+
+Need to add a new feature? Create a PR
+
+Be sure to read the complete [documentation of this infrastructure](/docs/)
