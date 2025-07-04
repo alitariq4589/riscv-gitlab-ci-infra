@@ -11,29 +11,41 @@
           --executor docker \
           --docker-image riscv64/debian:trixie-slim
       register: result
-      # Add a `changed_when` to prevent this task from always reporting a change if it just tries to register
-      # You might want to make this more sophisticated if you have specific conditions for "changed"
-      changed_when: false # Set to false if you just want to check for success/failure in subsequent tasks
+      changed_when: false
+      ignore_errors: yes
 
     - name: Debug runner registration output
       debug:
         var: result
 
-
     - name: Fail if runner verification failed
       fail:
-        msg: "Invalid Gitlab Registration Token"
+        msg: "Invalid Gitlab Registration Token (verification failed)"
       when:
-        - "'ERROR: Verifying runner... failed' in result.stderr"
-  
+        - result is defined
+        - "'ERROR: Verifying runner... failed' in result.stderr or 'is not valid' in result.stderr or 'Failed to verify the runner.' in result.stderr"
+
     - name: Fail if request cannot be processed
       fail:
-        msg: "Invalid Gitlab Registration Token or GitLab server URL"
+        msg: "Invalid Gitlab Registration Token or GitLab server URL (unprocessable entity)"
       when:
+        - result is defined
         - "'status=422 Unprocessable Entity' in result.stderr"
-    
+
     - name: Fail if runner registration was not successful
       fail:
         msg: "Runner registration failed for an unknown reason. Output: {{ result.stdout + result.stderr }}"
       when:
+        - result is defined
+        - "'Runner registered successfully.' not in (result.stdout + result.stderr)"
+
+    - name: Catch-all failure if command failed and none of the above matched
+      fail:
+        msg: "Runner registration failed with unknown error. Full output: {{ result.stdout + result.stderr }}"
+      when:
+        - result is defined
+        - result.rc != 0
+        - "'ERROR: Verifying runner... failed' not in result.stderr"
+        - "'ERROR: Verifying runner... is not valid' not in result.stderr"
+        - "'status=422 Unprocessable Entity' not in result.stderr"
         - "'Runner registered successfully.' not in (result.stdout + result.stderr)"

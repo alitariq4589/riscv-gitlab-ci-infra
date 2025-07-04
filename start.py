@@ -688,7 +688,7 @@ def handle_runner_registration_post():
             )
         
         return render_template('no_registration_token.html',
-            error_message="We encountered an internal issue and were unable to assign the requested machine. Please try again shortly, or contact support at cloud-v@10xengineers.ai for assistance."
+            error_message="We encountered an internal issue and were unable to assign the requested machine. Please try again shortly, or check if you entered the correct GitLab registration token and server URL."
         )
 
 # Add new route for board status
