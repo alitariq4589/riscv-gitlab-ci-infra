@@ -9,6 +9,9 @@ This infrastructure is for managing RISC-V boards as the GitLab runners. This se
 - Unregistering the boards as runners
 - Removing the boards from this infrastructure
 
+
+![GitLab RISC-V Management Infrastructure](static/flask_app_gitalb-riscv.drawio.png)
+
 ## Getting Started
 
 ### Pre-requisites
