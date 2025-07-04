@@ -397,50 +397,41 @@ def save_registry(registry, runner_registry_file_path):
 
 def check_latest_failed_attempt(log_file):
     """
-    Analyzes the ansible log file for specific failure messages.
+    Parses the Ansible log to identify the exact failing task during GitLab Runner registration.
+    
     Returns:
-        0: No specific failure pattern found or success.
-        1: Invalid GitLab Registration Token (specific error message).
-        2: Invalid GitLab Registration Token or GitLab server URL (status 422).
-        3: GitLab Runner binary not found on the target machine.
-        4: Generic board setup failure.
+        0: No error or unrecognized failure
+        1: Invalid GitLab Registration Token (verification failed)
+        2: Invalid Token or GitLab server URL (422 Unprocessable Entity)
+        3: GitLab Runner binary not found
+        4: Generic error (fatal but not matched above)
     """
     if not os.path.exists(log_file):
         logger.info(f"Log file not found: {log_file}")
         return 0
 
-    with open(log_file, 'r') as f:
-        lines = f.readlines()
+    with open(log_file, "r") as f:
+        log = f.read()
 
-    # Find the last occurrence of a "TASK [Fail |" line
-    latest_fail_index = -1
-    for i, line in reversed(list(enumerate(lines))):
-        if re.match(r'^TASK \[Fail \|', line):
-            latest_fail_index = i
-            break
-    
-    if latest_fail_index == -1:
-        logger.info("No specific 'Fail |' tasks found in log.")
-        return 0 # No specific failure task found
-
-    # Get the content from the latest fail task to the end of the log
-    latest_attempt_text = ''.join(lines[latest_fail_index:])
-
-    if "Invalid Gitlab Registration Token or GitLab server URL" in latest_attempt_text:
-        logger.info("Latest attempt failed due to invalid runner token or invalid gitlab server url (422 error).")
-        return 2
-    elif "Invalid Gitlab Registration Token" in latest_attempt_text:
-        logger.info("Latest attempt failed due to invalid runner token.")
+    # Check specific fail messages
+    if "TASK [Fail if runner verification failed]" in log:
+        logger.info("Detected task failure: Invalid GitLab Registration Token.")
         return 1
-    elif "not found" in latest_attempt_text and "/home/gitlab-runner-user/gitlab-runner/out/binaries/gitlab-runner-linux-riscv64" in latest_attempt_text:
-        logger.info("Latest attempt failed because GitLab Runner binary was not found.")
-        return 3 # New error code for "not found"
-    elif "fatal:" in latest_attempt_text or "FAILED!" in latest_attempt_text: # Generic check for Ansible fatal/failed
-        logger.info("Latest attempt failed due to a generic Ansible setup error.")
-        return 4 # New error code for generic setup failure
-    else:
-        logger.info("Latest attempt did not fail due to a recognized runner token/URL issue.")
-        return 0
+    if "TASK [Fail if request cannot be processed]" in log:
+        logger.info("Detected task failure: Unprocessable Entity (422).")
+        return 2
+    if "TASK [Fail if runner registration was not successful]" in log:
+        logger.info("Detected task failure: Unknown registration failure.")
+        return 4
+    if "TASK [Catch-all failure if command failed" in log:
+        if "not found" in log and "gitlab-runner-linux-riscv64" in log:
+            logger.info("Detected task failure: GitLab Runner binary not found.")
+            return 3
+        logger.info("Detected catch-all failure: Unrecognized error.")
+        return 4
+
+    logger.info("No known registration errors found.")
+    return 0
 
 
 # --- Flask Routes ---
