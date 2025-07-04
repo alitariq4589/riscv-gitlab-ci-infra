@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 RUNNER_REGISTRY_FILE = os.path.join(APP_ROOT, "runner_registry.yaml")
 INVENTORY_FILE = os.path.join(APP_ROOT, "ansible", "inventory.ini")
-LOG_FILE = os.path.join(APP_ROOT, "ansible-registration.log")
-ANSIBLE_SETUP_LOG_FILE = os.path.join(APP_ROOT, "ansible-setup.log")
-ANSIBLE_UNREGISTER_BOARD_LOG_FILE = os.path.join(APP_ROOT, "ansible-unregister-board.log") # Renamed for clarity
-ANSIBLE_UNREGISTER_RUNNER_LOG_FILE = os.path.join(APP_ROOT, "ansible-unregister-runner.log") # New log file for unregistering runner
+LOG_FILE = os.path.join(APP_ROOT,"logs", "ansible-registration.log")
+ANSIBLE_SETUP_LOG_FILE = os.path.join(APP_ROOT, "logs", "ansible-setup.log")
+ANSIBLE_UNREGISTER_BOARD_LOG_FILE = os.path.join(APP_ROOT, "logs", "ansible-unregister-board.log") # Renamed for clarity
+ANSIBLE_UNREGISTER_RUNNER_LOG_FILE = os.path.join(APP_ROOT, "logs", "ansible-unregister-runner.log") # New log file for unregistering runner
 
 RUNNER_REGISTRATION_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "register-runner.yml")
-SETUP_BOARD_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "setup_board.yml") # Corrected filename
+SETUP_BOARD_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "setup-board.yml") # Corrected filename
 UNREGISTER_BOARD_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "unregister_board.yml") # Corrected filename
 UNREGISTER_GITLAB_RUNNER_PLAYBOOK = os.path.join(APP_ROOT, "ansible", "unregister_gitlab_runner.yml") # New playbook path
 
@@ -320,7 +320,7 @@ def setup_board_attempt(target_node, log_file, inventory_file, setup_playbook):
         "ansible-playbook", setup_playbook,
         "-i", inventory_file,
         "-e", f"target_node={target_node}", # Pass the target node dynamically
-        "--extra-vars", f"ansible_user=gitlab-runner-user" # Ensure ansible_user is passed for setup
+        "--extra-vars", f"ansible_user=root" # Ensure ansible_user is passed for setup
     ]
     logger.info(f"Executing Ansible command for board setup: {' '.join(cmd)}")
     try:
@@ -345,7 +345,7 @@ def unregister_board_attempt(target_node, log_file, inventory_file, unregister_p
         "ansible-playbook", unregister_playbook,
         "-i", inventory_file,
         "-e", f"target_node={target_node}",
-        "--extra-vars", f"ansible_user=gitlab-runner-user" # Ensure ansible_user is passed for cleanup
+        "--extra-vars", f"ansible_user=root" # Ensure ansible_user is passed for cleanup
     ]
     logger.info(f"Executing Ansible command for board unregistration: {' '.join(cmd)}")
     try:
